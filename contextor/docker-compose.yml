@@ -1,0 +1,42 @@
+version: '3.8'
+ 
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: contextor_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-contextor_db}
+      POSTGRES_USER: ${POSTGRES_USER:-contextor_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contextor_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-contextor_user} -d ${POSTGRES_DB:-contextor_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  contextor_core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contextor_core_api
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://contextor_user:contextor_password@postgres:5432/contextor_db}
+      PORT: ${PORT:-8000}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+
+volumes:
+  pgdata:
+
